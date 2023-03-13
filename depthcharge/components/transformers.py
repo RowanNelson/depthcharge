@@ -361,6 +361,7 @@ class PeptideDecoder(_PeptideTransformer):
         reverse=True,
         residues="canonical",
         max_charge=5,
+        max_enzymes=9,
     ):
         """Initialize a PeptideDecoder"""
         super().__init__(
@@ -368,6 +369,7 @@ class PeptideDecoder(_PeptideTransformer):
             pos_encoder=pos_encoder,
             residues=residues,
             max_charge=max_charge,
+            max_enzymes=max_enzymes,
         )
         self.reverse = reverse
 
@@ -388,7 +390,7 @@ class PeptideDecoder(_PeptideTransformer):
 
         self.final = torch.nn.Linear(dim_model, len(self._amino_acids) + 1)
 
-    def forward(self, sequences, precursors, memory, memory_key_padding_mask):
+    def forward(self, sequences, precursors, enzymes, memory, memory_key_padding_mask):
         """Predict the next amino acid for a collection of sequences.
 
         Parameters
@@ -400,6 +402,9 @@ class PeptideDecoder(_PeptideTransformer):
         precursors : torch.Tensor of size (batch_size, 2)
             The measured precursor mass (axis 0) and charge (axis 1) of each
             tandem mass spectrum
+        enzymes : a torch tensor is more than two dimensions. I think that
+            this is just going to be a one dimensional vector of length num_enzymes 
+            Digestion enzyme used for the sequence being predicted.
         memory : torch.Tensor of shape (batch_size, n_peaks, dim_model)
             The representations from a ``TransformerEncoder``, such as a
            ``SpectrumEncoder``.
@@ -428,6 +433,12 @@ class PeptideDecoder(_PeptideTransformer):
         masses = self.mass_encoder(precursors[:, None, [0]])
         charges = self.charge_encoder(precursors[:, 1].int() - 1)
         precursors = masses + charges[:, None, :]
+
+        #so, preparing enzymes should look like... uh.. linearizing them? or
+        #is that done at a different step? Like in casanovo. 
+        #no, I think that it is done here. So, will probably use torch.nn.Linear
+        #but I have to figure out what inputs.
+
 
         # Feed through model:
         if sequences is None:
